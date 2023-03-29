@@ -824,10 +824,11 @@ Showing Information
 
    Show detailed information about the OSPF link-state database.
 
-.. clicmd:: show ip ospf route [json]
+.. clicmd:: show ip ospf route [detail] [json]
 
    Show the OSPF routing table, as determined by the most recent SPF
-   calculation.
+   calculation. If detail is specified, each routing item's
+   advertiser will be show up.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
 
@@ -838,7 +839,7 @@ Showing Information
 
 .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
 
-   Displays the Grcaeful Restart Helper details including helper
+   Displays the Graceful Restart Helper details including helper
    config changes.
 
 .. _opaque-lsa:

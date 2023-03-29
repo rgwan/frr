@@ -10401,7 +10401,7 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				       struct route_table *rt,
-				       json_object *json)
+				       json_object *json, bool detail)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -10526,6 +10526,10 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
+							json_object_string_addf(
+								json_nexthop,
+								"adv", "%pI4",
+								&path->adv_router);
 						} else {
 							vty_out(vty,
 								"%24s   via %pI4, %s\n",
@@ -10535,6 +10539,11 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 									path->ifindex,
 									ospf->vrf_id));
 						}
+						if (detail && !json)
+							vty_out(vty,
+								"%24s   adv %pI4\n",
+								"",
+								&path->adv_router);
 					}
 				}
 			}
@@ -10689,7 +10698,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 
 static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 					struct route_table *rt,
-					json_object *json)
+					json_object *json, bool detail)
 {
 	struct route_node *rn;
 	struct ospf_route *er;
@@ -10793,6 +10802,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
+						json_object_string_addf(
+							json_nexthop, "adv",
+							"%pI4",
+							&path->adv_router);
 					} else {
 						vty_out(vty,
 							"%24s   via %pI4, %s\n",
@@ -10802,6 +10815,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 								path->ifindex,
 								ospf->vrf_id));
 					}
+					if (detail && !json)
+						vty_out(vty,
+							"%24s   adv %pI4\n", "",
+							&path->adv_router);
 				}
 			}
 		}
@@ -11088,7 +11105,8 @@ DEFUN (show_ip_ospf_instance_border_routers,
 }
 
 static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
-				     json_object *json, uint8_t use_vrf)
+				     json_object *json, uint8_t use_vrf,
+				     bool detail)
 {
 	json_object *json_vrf = NULL;
 
@@ -11116,7 +11134,8 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	/* Show Network routes. */
-	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf);
+	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf,
+				   detail);
 
 	/* Show Router routes. */
 	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
@@ -11127,7 +11146,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	/* Show AS External routes. */
 	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
-				    json_vrf);
+				    json_vrf, detail);
 
 	if (json) {
 		if (use_vrf) {
@@ -11145,13 +11164,14 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
-	"show ip ospf [vrf <NAME|all>] route [json]",
+	"show ip ospf [vrf <NAME|all>] route [detail] [json]",
 	SHOW_STR
 	IP_STR
 	"OSPF information\n"
 	VRF_CMD_HELP_STR
 	"All VRFs\n"
 	"OSPF routing table\n"
+	"Detailed information\n"
 	JSON_STR)
 {
 	struct ospf *ospf = NULL;
@@ -11160,13 +11180,18 @@ DEFUN (show_ip_ospf_route,
 	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
+	int idx = 0;
 	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
 	bool uj = use_json(argc, argv);
+	bool detail = false;
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
@@ -11181,8 +11206,8 @@ DEFUN (show_ip_ospf_route,
 				if (!ospf->oi_running)
 					continue;
 				ospf_output = true;
-				ret = show_ip_ospf_route_common(vty, ospf, json,
-								use_vrf);
+				ret = show_ip_ospf_route_common(
+					vty, ospf, json, use_vrf, detail);
 			}
 
 			if (uj) {
@@ -11219,7 +11244,8 @@ DEFUN (show_ip_ospf_route,
 	}
 
 	if (ospf) {
-		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
+		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf,
+						detail);
 		/* Keep Non-pretty format */
 		if (uj)
 			vty_out(vty, "%s\n",
@@ -11235,16 +11261,22 @@ DEFUN (show_ip_ospf_route,
 
 DEFUN (show_ip_ospf_instance_route,
        show_ip_ospf_instance_route_cmd,
-       "show ip ospf (1-65535) route",
+       "show ip ospf (1-65535) route [detail]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "OSPF routing table\n")
+       "OSPF routing table\n"
+       "Detailed information\n")
 {
 	int idx_number = 3;
+	int idx = 0;
 	struct ospf *ospf;
 	unsigned short instance = 0;
+	bool detail = false;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (instance != ospf_instance)
@@ -11254,7 +11286,7 @@ DEFUN (show_ip_ospf_instance_route,
 	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_route_common(vty, ospf, NULL, 0);
+	return show_ip_ospf_route_common(vty, ospf, NULL, 0, detail);
 }
 
 
