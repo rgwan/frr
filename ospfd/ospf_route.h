@@ -69,6 +69,8 @@ struct route_standard {
 
 	/*  */
 	uint8_t flags; /* From router-LSA */
+
+	bool transit;
 };
 
 struct route_external {
