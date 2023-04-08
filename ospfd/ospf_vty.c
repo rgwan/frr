@@ -10533,19 +10533,19 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 								"%pI4",
 								&path->adv_router);
 						} else {
+							snprintfrr(buf1, sizeof(buf1),
+								"%pI4", &path->adv_router);
 							vty_out(vty,
-								"%24s   via %pI4, %s\n",
-								"",
+								" %s %-20s  via %pI4, %s\n",
+								detail ? "adv" :
+									 "   ",
+								detail ? buf1  :
+									"",
 								&path->nexthop,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
 						}
-						if (detail && !json)
-							vty_out(vty,
-								"%24s   adv %pI4\n",
-								"",
-								&path->adv_router);
 					}
 				}
 			}
@@ -10810,18 +10810,19 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 							"%pI4",
 							&path->adv_router);
 					} else {
+						snprintfrr(buf1, sizeof(buf1),
+							"%pI4", &path->adv_router);
 						vty_out(vty,
-							"%24s   via %pI4, %s\n",
-							"",
+							" %s %-20s  via %pI4, %s\n",
+							detail ? "adv" :
+								 "   ",
+							detail ? buf1  :
+								 "",
 							&path->nexthop,
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
 					}
-					if (detail && !json)
-						vty_out(vty,
-							"%24s   adv %pI4\n", "",
-							&path->adv_router);
 				}
 			}
 		}
